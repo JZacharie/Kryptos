@@ -1,0 +1,20 @@
+version: '3.8'
+
+services:
+  secret-seal:
+    build: .
+    container_name: secret-seal-app
+    ports:
+      - "8080:80"
+    env_file:
+      - .env
+    environment:
+      - VAULT_URL=${VAULT_URL}
+      - VAULT_TOKEN=${VAULT_TOKEN}
+    restart: always
+    networks:
+      - secret-seal-network
+
+networks:
+  secret-seal-network:
+    driver: bridge

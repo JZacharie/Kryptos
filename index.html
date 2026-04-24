@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Secret Seal - Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Outfit:wght@700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="src/frontend/style.css">
+    <script defer src="node_modules/alpinejs/dist/cdn.min.js"></script>
+</head>
+<body class="bg-base-dark text-primary min-h-screen font-body" x-data="dashboard">
+    <!-- Header Global -->
+    <header class="glass sticky top-0 z-50 flex items-center justify-between px-6 py-4 mb-8">
+        <div class="flex items-center gap-4">
+            <div class="heading-lg text-accent-primary flex items-center gap-2">
+                <span class="w-8 h-8 rounded-full border-2 border-accent-primary flex items-center justify-center text-xs">SS</span>
+                SECRET SEAL
+            </div>
+        </div>
+        
+        <div class="flex-1 max-w-xl px-8">
+            <div class="relative">
+                <input type="text" placeholder="Rechercher un namespace ou un secret..." class="w-full bg-white/5 border border-white/10 rounded-full py-2 px-4 focus:outline-none focus:border-accent-primary transition-colors text-sm">
+            </div>
+        </div>
+
+        <div class="flex items-center gap-4">
+            <div class="flex items-center gap-2">
+                <div class="text-right hidden md:block">
+                    <div class="text-sm font-semibold">Sam SRE</div>
+                    <div class="text-xs text-dim">Administrateur GXP</div>
+                </div>
+                <div class="w-10 h-10 rounded-full bg-gradient-to-tr from-accent-primary to-accent-secondary flex items-center justify-center font-bold text-base-dark">
+                    S
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="container mx-auto px-6 pb-12">
+        <div id="app">
+            <!-- Dashboard View -->
+            <template x-if="view === 'dashboard'">
+                <div x-cloak>
+                    <!-- KPI Hero -->
+                    <section class="flex gap-6 mb-12">
+                        <div class="glass p-6 rounded-2xl flex-1 flex flex-col gap-1">
+                            <span class="text-dim text-xs font-semibold uppercase tracking-wider">Total Secrets</span>
+                            <span class="heading-2xl" x-text="namespaces.reduce((acc, ns) => acc + ns.secrets, 0)"></span>
+                        </div>
+                        <div class="glass p-6 rounded-2xl flex-1 flex flex-col gap-1 border-status-error/30" :class="namespaces.some(ns => ns.status === 'error') ? 'pulse-error' : ''">
+                            <span class="text-dim text-xs font-semibold uppercase tracking-wider">Alertes Critiques</span>
+                            <span class="heading-2xl text-status-error" x-text="namespaces.filter(ns => ns.status === 'error').length"></span>
+                        </div>
+                        <div class="glass p-6 rounded-2xl flex-1 flex flex-col gap-1">
+                            <span class="text-dim text-xs font-semibold uppercase tracking-wider">Mises à jour (24h)</span>
+                            <span class="heading-2xl text-accent-primary">14</span>
+                        </div>
+                    </section>
+
+                    <!-- Namespace Grid Header -->
+                    <div class="flex justify-between items-center mb-8">
+                        <h2 class="heading-2xl">Namespaces gérés</h2>
+                        <button class="btn-primary" @click="startWizard()">+ Nouveau Secret</button>
+                    </div>
+
+                    <!-- Namespace Grid -->
+                    <section>
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                            <template x-for="ns in namespaces" :key="ns.id">
+                                <div @click="selectNamespace(ns)" 
+                                     class="glass p-6 rounded-2xl cursor-pointer transition-all hover:scale-[1.02] relative group"
+                                     :class="{
+                                         'border-status-error/50 pulse-error': ns.status === 'error',
+                                         'border-status-warning/50 pulse-warning': ns.status === 'warning'
+                                     }">
+                                    <div class="flex justify-between items-start mb-4">
+                                        <div class="heading-lg" x-text="ns.name"></div>
+                                        <div class="w-3 h-3 rounded-full" 
+                                             :class="{
+                                                 'bg-status-error': ns.status === 'error',
+                                                 'bg-status-warning': ns.status === 'warning',
+                                                 'bg-accent-primary shadow-[0_0_10px_rgba(0,229,255,0.5)]': ns.status === 'healthy'
+                                             }"></div>
+                                    </div>
+                                    <div class="flex flex-col gap-2">
+                                        <div class="flex justify-between text-sm">
+                                            <span class="text-dim">Secrets:</span>
+                                            <span class="font-bold" x-text="ns.secrets"></span>
+                                        </div>
+                                        <div class="flex justify-between text-sm">
+                                            <span class="text-dim">Alertes:</span>
+                                            <span class="font-bold" :class="ns.alerts > 0 ? 'text-status-error' : ''" x-text="ns.alerts"></span>
+                                        </div>
+                                    </div>
+                                    <div class="mt-4 pt-4 border-t border-white/5 flex items-center justify-between text-xs text-dim">
+                                        <span>GitOps Synced</span>
+                                        <span class="text-accent-primary opacity-50 group-hover:opacity-100 transition-opacity">Voir détails →</span>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                    </section>
+                </div>
+            </template>
+
+            <!-- Wizard View (Scenario 02) -->
+            <template x-if="view === 'wizard'">
+                <div x-cloak>
+                    <!-- Stepper -->
+                    <div class="flex justify-center gap-12 mb-12">
+                        <template x-for="i in [1,2,3]">
+                            <div class="flex items-center gap-3">
+                                <div class="w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs border-2 transition-colors"
+                                     :class="wizardStep >= i ? 'border-accent-secondary text-accent-secondary' : 'border-white/20 text-white/20'"
+                                     x-text="i"></div>
+                                <span class="text-xs font-semibold uppercase tracking-widest" 
+                                      :class="wizardStep >= i ? 'text-primary' : 'text-dim'">
+                                    <span x-show="i===1">Template</span>
+                                    <span x-show="i===2">Config</span>
+                                    <span x-show="i===3">Prêt</span>
+                                </span>
+                            </div>
+                        </template>
+                    </div>
+
+                    <!-- Step 1: Selection Template -->
+                    <template x-if="wizardStep === 1">
+                        <div>
+                            <h2 class="heading-2xl text-center mb-12">Quel type de secret voulez-vous créer ?</h2>
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                                <div @click="newSecret.template = 'db'; nextStep()" 
+                                     class="glass p-8 rounded-2xl cursor-pointer text-center group transition-all border-2"
+                                     :class="newSecret.template === 'db' ? 'border-accent-secondary' : 'border-transparent hover:border-white/10'">
+                                    <div class="w-16 h-16 bg-accent-secondary/10 rounded-2xl flex items-center justify-center mx-auto mb-6 text-accent-secondary">
+                                        <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"></path></svg>
+                                    </div>
+                                    <h3 class="heading-lg mb-2">Base de données</h3>
+                                    <p class="text-sm text-dim">PostgreSQL, MySQL, Oracle</p>
+                                </div>
+                                <div class="glass p-8 rounded-2xl opacity-50 cursor-not-allowed text-center">
+                                    <div class="w-16 h-16 bg-white/5 rounded-2xl flex items-center justify-center mx-auto mb-6 text-dim">
+                                        <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"></path></svg>
+                                    </div>
+                                    <h3 class="heading-lg mb-2">Clé API</h3>
+                                    <p class="text-sm text-dim">Bientôt disponible</p>
+                                </div>
+                                <div class="glass p-8 rounded-2xl opacity-50 cursor-not-allowed text-center">
+                                    <div class="w-16 h-16 bg-white/5 rounded-2xl flex items-center justify-center mx-auto mb-6 text-dim">
+                                        <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
+                                    </div>
+                                    <h3 class="heading-lg mb-2">Certificat</h3>
+                                    <p class="text-sm text-dim">Bientôt disponible</p>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+
+                    <!-- Step 2: Form -->
+                    <template x-if="wizardStep === 2">
+                        <div class="max-w-4xl mx-auto flex gap-12">
+                            <div class="flex-1">
+                                <h2 class="heading-lg mb-6">Configuration du secret</h2>
+                                <div class="flex flex-col gap-6">
+                                    <div>
+                                        <label class="block text-xs font-bold text-dim uppercase tracking-wider mb-2">Namespace Cible</label>
+                                        <select x-model="newSecret.namespace" class="w-full bg-white/5 border border-white/10 rounded-lg p-3 focus:border-accent-secondary outline-none transition-colors">
+                                            <option value="">Sélectionner un namespace</option>
+                                            <template x-for="ns in namespaces" :key="ns.id">
+                                                <option :value="ns.id" x-text="ns.name"></option>
+                                            </template>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-bold text-dim uppercase tracking-wider mb-2">Nom du secret Kubernetes</label>
+                                        <input type="text" x-model="newSecret.name" placeholder="ex: mes-db-password" class="w-full bg-white/5 border border-white/10 rounded-lg p-3 focus:border-accent-secondary outline-none transition-colors">
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-bold text-dim uppercase tracking-wider mb-2">Chemin Vault Source</label>
+                                        <input type="text" x-model="newSecret.vaultPath" placeholder="sanofi/kv/mes/prod/db" class="w-full bg-white/5 border border-white/10 rounded-lg p-3 focus:border-accent-secondary outline-none transition-colors">
+                                    </div>
+                                    <div class="flex items-center gap-3">
+                                        <input type="checkbox" x-model="newSecret.rotation" id="rotation" class="w-4 h-4 rounded border-white/10 bg-white/5 text-accent-secondary focus:ring-accent-secondary">
+                                        <label for="rotation" class="text-sm">Activer la rotation automatique GXP</label>
+                                    </div>
+                                </div>
+                                <div class="flex gap-4 mt-12">
+                                    <button @click="prevStep()" class="flex-1 px-6 py-3 rounded-lg border border-white/10 hover:bg-white/5 transition-colors">Retour</button>
+                                    <button @click="nextStep()" class="flex-1 btn-primary" :disabled="!newSecret.name || !newSecret.namespace">Sceller le Secret</button>
+                                </div>
+                            </div>
+                            <div class="w-80 hidden lg:block">
+                                <label class="block text-xs font-bold text-dim uppercase tracking-wider mb-2">Preview YAML</label>
+                                <div class="glass p-4 rounded-xl font-mono text-[10px] leading-relaxed opacity-60">
+                                    <div class="text-accent-secondary">apiVersion:</div> <div class="text-white">bitnami.com/v1alpha1</div>
+                                    <div class="text-accent-secondary">kind:</div> <div class="text-white">SealedSecret</div>
+                                    <div class="text-accent-secondary">metadata:</div>
+                                    <div class="pl-4"><span class="text-accent-secondary">name:</span> <span class="text-white" x-text="newSecret.name || '...'"></span></div>
+                                    <div class="pl-4"><span class="text-accent-secondary">namespace:</span> <span class="text-white" x-text="newSecret.namespace || '...'"></span></div>
+                                    <div class="text-accent-secondary">spec:</div>
+                                    <div class="pl-4 text-dim"># Chiffrement AES-256 GCM...</div>
+                                    <div class="pl-4 text-dim"># Vault source: <span x-text="newSecret.vaultPath || '...'"></span></div>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+
+                    <!-- Step 3: Success -->
+                    <template x-if="wizardStep === 3">
+                        <div class="max-w-xl mx-auto text-center">
+                            <div class="w-24 h-24 bg-accent-primary/20 rounded-full flex items-center justify-center mx-auto mb-8 text-accent-primary pulse-healthy shadow-[0_0_30px_rgba(0,229,255,0.3)]">
+                                <svg class="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                            </div>
+                            <h2 class="heading-4xl mb-4">Secret Scellé !</h2>
+                            <p class="text-dim mb-12">Votre secret a été chiffré et poussé vers la branche <code class="text-accent-secondary">feature/secret-<span x-text="newSecret.name"></span></code>. Une Pull Request est prête pour validation.</p>
+                            
+                            <div class="glass p-6 rounded-2xl flex items-center justify-between mb-12">
+                                <div class="flex items-center gap-4">
+                                    <div class="w-10 h-10 bg-white/5 rounded-lg flex items-center justify-center">
+                                        <svg class="w-6 h-6 text-dim" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.041-1.416-4.041-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+                                    </div>
+                                    <div class="text-left">
+                                        <div class="text-sm font-bold">Pull Request #412</div>
+                                        <div class="text-xs text-dim">Créé il y a 2 secondes</div>
+                                    </div>
+                                </div>
+                                <button class="btn-primary" @click="goBack()">Ouvrir PR</button>
+                            </div>
+
+                            <button @click="goBack()" class="text-accent-primary hover:underline">Retour au Dashboard</button>
+                        </div>
+                    </template>
+                </div>
+            </template>
+
+            <!-- Namespace Detail View -->
+            <template x-if="view === 'namespace'">
+                <div x-cloak>
+                    <!-- Breadcrumb -->
+                    <nav class="flex items-center gap-2 mb-8 text-sm">
+                        <a href="#" @click.prevent="goBack()" class="text-dim hover:text-accent-primary transition-colors">Dashboard</a>
+                        <span class="text-white/20">/</span>
+                        <span class="text-accent-primary" x-text="selectedNamespace.name"></span>
+                    </nav>
+
+                    <div class="flex justify-between items-end mb-8">
+                        <div>
+                            <h1 class="heading-4xl" x-text="selectedNamespace.name"></h1>
+                            <p class="text-dim">Inspection détaillée des secrets du namespace.</p>
+                        </div>
+                        <button class="btn-primary" x-data="{ syncing: false }" @click="syncing = true; setTimeout(() => syncing = false, 2000)" :disabled="syncing">
+                            <span x-show="!syncing">Force Git Sync</span>
+                            <span x-show="syncing">Synchronisation...</span>
+                        </button>
+                    </div>
+
+                    <div class="glass rounded-2xl overflow-hidden">
+                        <table class="w-full text-left">
+                            <thead class="bg-white/5 border-b border-white/10">
+                                <tr>
+                                    <th class="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-dim">Nom du Secret</th>
+                                    <th class="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-dim">Source Vault</th>
+                                    <th class="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-dim">Etat Git</th>
+                                    <th class="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-dim text-right">Expiration</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr class="border-b border-white/5 hover:bg-white/5 transition-colors">
+                                    <td class="px-6 py-4 font-medium">db-password</td>
+                                    <td class="px-6 py-4 text-sm text-dim">sanofi/kv/mes/prod/db</td>
+                                    <td class="px-6 py-4 text-sm"><span class="px-2 py-1 rounded bg-accent-primary/10 text-accent-primary text-xs font-bold border border-accent-primary/20">SYNCED</span></td>
+                                    <td class="px-6 py-4 text-right">
+                                        <span class="px-2 py-1 rounded bg-status-error/10 text-status-error text-xs font-bold border border-status-error/20">EXPIRÉ</span>
+                                    </td>
+                                </tr>
+                                <tr class="border-b border-white/5 hover:bg-white/5 transition-colors">
+                                    <td class="px-6 py-4 font-medium">api-key-internal</td>
+                                    <td class="px-6 py-4 text-sm text-dim">sanofi/kv/common/api</td>
+                                    <td class="px-6 py-4 text-sm"><span class="px-2 py-1 rounded bg-accent-primary/10 text-accent-primary text-xs font-bold border border-accent-primary/20">SYNCED</span></td>
+                                    <td class="px-6 py-4 text-right">
+                                        <span class="px-2 py-1 rounded bg-status-warning/10 text-status-warning text-xs font-bold border border-status-warning/20">2 MOIS</span>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </template>
+        </div>
+    </main>
+
+    <script src="src/frontend/app.js"></script>
+</body>
+</html>
