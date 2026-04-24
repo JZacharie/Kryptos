@@ -11,6 +11,8 @@ services:
     environment:
       - VAULT_URL=${VAULT_URL}
       - VAULT_TOKEN=${VAULT_TOKEN}
+    volumes:
+      - ./certs:/app/certs
     restart: always
     networks:
       - secret-seal-network

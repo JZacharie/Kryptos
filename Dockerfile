@@ -1,20 +1,40 @@
-# Utiliser une image Nginx légère
-FROM nginx:alpine
+# Étape 1 : Construction / Préparation
+FROM debian:bookworm-slim
 
-# Supprimer la configuration par défaut de Nginx
-RUN rm /etc/nginx/conf.d/default.conf
+# Installation des dépendances système
+RUN apt-get update && apt-get install -y \
+    curl \
+    python3 \
+    python3-pip \
+    python3-venv \
+    nginx \
+    && rm -rf /var/lib/apt/lists/*
 
-# Copier une configuration personnalisée pour gérer les routes SPA si besoin
-COPY nginx.conf /etc/nginx/conf.d/
+# Installation de kubeseal
+RUN KUBESEAL_VERSION=0.21.0 && \
+    curl -L https://github.com/bitnami-labs/sealed-secrets/releases/download/v${KUBESEAL_VERSION}/kubeseal-${KUBESEAL_VERSION}-linux-amd64.tar.gz | tar xz && \
+    install -m 755 kubeseal /usr/local/bin/kubeseal
 
-# Copier les fichiers de l'application dans le répertoire de Nginx
-# On copie index.html, le dossier src/ et node_modules/ (pour Alpine JS local)
-COPY index.html /usr/share/nginx/html/
-COPY src/ /usr/share/nginx/html/src/
-COPY node_modules/ /usr/share/nginx/html/node_modules/
+# Configuration du répertoire de travail
+WORKDIR /app
 
-# Exposer le port 80
+# Copie des fichiers de l'application
+COPY . .
+
+# Configuration de Nginx pour servir le frontend
+COPY nginx.conf /etc/nginx/sites-available/default
+RUN ln -sf /etc/nginx/sites-available/default /etc/nginx/sites-enabled/default
+
+# Installation des dépendances Python (Flask pour le backend de scellement)
+RUN python3 -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+RUN pip install flask flask-cors
+
+# Exposition des ports
 EXPOSE 80
 
-# Lancer Nginx
-CMD ["nginx", "-g", "daemon off;"]
+# Script de démarrage pour lancer Nginx et le backend Python
+RUN echo '#!/bin/sh\nnginx\npython3 src/backend/main.py' > /app/start.sh && \
+    chmod +x /app/start.sh
+
+CMD ["/app/start.sh"]
